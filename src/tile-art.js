@@ -39,4 +39,4 @@ function honor(n){
  </g>`;
  return `<path fill="${n===7?R:G}" stroke="${n===7?R:G}" stroke-width="${n===7?0.8:1.2}" stroke-linejoin="round" d="${n===7?ZHONG:FA}"/>`;
 }
-export function tileArtwork(t){const n=+t[1],body=t[0]==='p'?circles(n):t[0]==='s'?sticks(n):honor(n);return `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="132" viewBox="0 0 96 132">${body}</svg>`;}
+export function tileArtwork(t){const n=+t[1],body=t[0]==='p'?circles(n):t[0]==='s'?sticks(n):honor(n);return `<svg xmlns="http://www.w3.org/2000/svg" width="384" height="528" viewBox="0 0 96 132">${body}</svg>`;}

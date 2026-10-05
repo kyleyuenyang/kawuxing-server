@@ -1,4 +1,5 @@
 import Majiang from '@kobalab/majiang-core';
+import {dealWall} from './wall.js';
 
 export const TYPES = [...['p','s'].flatMap(s => Array.from({length:9},(_,i)=>s+(i+1))), 'z5','z6','z7'];
 export const names = ['阿源','小林','阿慧','阿杰'];
@@ -104,13 +105,12 @@ export function nextSeats(seats,bench,winners,source,lastDraw) {
  else {dealer=winners[0]; if(bench!==null){const old=out[dealer];out[dealer]=bench;bench=old;}}
  return {seats:out,bench,dealer};
 }
-function shuffle(a) {for(let i=a.length-1;i>0;i--){const n=new Uint32Array(1);crypto.getRandomValues(n);const j=n[0]%(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
 export function newGame(config={base:1,cap:32,mode:'bots'},previous=null) {
  const seats=previous?.seats||[0,1,2], dealer=previous?.dealer??0;
- const wall=shuffle(TYPES.flatMap(t=>Array(4).fill(t)));
- const players=seats.map(id=>({id,hand:sorted(wall.splice(0,13)),melds:[],river:[],liang:false}));
- const t=wall.pop();players[dealer].hand.push(t);
- return {config:{...config},seats,bench:previous?.bench??(config.mode==='rotate'?3:null),dealer,players,wall,turn:dealer,lastDraw:dealer,drawTile:t,phase:'discard',pending:null,kongs:[],gangChain:0,round:previous?.round||1,history:previous?.history||[],totals:previous?.totals||[0,0,0,0],log:['新一局开牌'],result:null};
+ const {hands,wall,opening,wallState}=dealWall(TYPES.flatMap(t=>Array(4).fill(t)),dealer);
+ const players=seats.map((id,i)=>({id,hand:sorted(hands[i]),dealHand:[...hands[i]],melds:[],river:[],liang:false}));
+ const t=hands[dealer].at(-1);players[dealer].hand=sorted(hands[dealer].slice(0,-1));players[dealer].hand.push(t);
+ return {config:{...config},seats,bench:previous?.bench??(config.mode==='rotate'?3:null),dealer,players,wall,opening,wallState,turn:dealer,lastDraw:dealer,drawTile:t,phase:'discard',pending:null,kongs:[],gangChain:0,round:previous?.round||1,history:previous?.history||[],totals:previous?.totals||[0,0,0,0],log:[`四边码牌11/10/11/10墩 · 骰子${opening.dice.join('+')} · 从${['南','东','北','西'][opening.side]}边数墩开牌`,'新一局开牌'],result:null};
 }
 export function scoresFor(g,w,source=null) {
  const p=g.players[w],hand=source===null?p.hand:[...p.hand,g.pending.tile];
@@ -149,7 +149,7 @@ export function finish(g,winners=[],source=null) {
 }
 export function draw(g,seat,replacement=false) {
  if(!g.wall.length){finish(g);return;}
- g.turn=seat;g.lastDraw=seat;g.drawTile=g.wall.pop();g.players[seat].hand=sorted(g.players[seat].hand);g.players[seat].hand.push(g.drawTile);g.phase='discard';g.pending=null;
+ g.turn=seat;g.lastDraw=seat;g.drawTile=replacement?g.wall.shift():g.wall.pop();if(g.wallState)g.wallState[replacement?'back':'front']++;g.players[seat].hand=sorted(g.players[seat].hand);g.players[seat].hand.push(g.drawTile);g.phase='discard';g.pending=null;
  if(!replacement) g.gangChain=0;
  g.log.unshift(names[g.seats[seat]]+'摸牌');
 }

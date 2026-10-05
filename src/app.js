@@ -5,6 +5,7 @@ import {botStep,autoPass} from './engine.js';
 import {Menu,X,Pause,Maximize,Volume2,VolumeX} from 'lucide';
 import {gameTable} from './game-table.js';
 import {mountScene,resizeScene} from './table-scene.js';
+import {animateOpeningHand} from './deal-animation.js';
 import {discardPreviews} from './hand-preview.js';
 import {resultHTML,roundTime} from './settlement.js';
 import {createSession,everyoneReady,sessionRounds,sessionComplete,sessionTotals} from './session.js';
@@ -42,13 +43,8 @@ function lobbyHTML(){return `<section class="session-screen"><h1>好友卡五星
 function matchHTML(){const rounds=sessionRounds(session,game.history),totals=sessionTotals(session,game.history);return `<section class="session-screen"><h1>整场结算</h1><h2>${rounds.length} / ${session.limit} 局</h2><div class="match-totals">${totals.slice(0,game.config.mode==='rotate'?4:3).map((v,i)=>`<p>${names[i]} <strong>${v>0?'+':''}${v} 分</strong></p>`).join('')}</div><button data-action="new-session">再开一桌</button><button data-action="export">导出流水</button>${rounds.map(h=>`<details class="history-round"><summary>第 ${h.round} 局 · ${h.winners?.length?'胡牌':'流局'}</summary>${resultHTML(h,h.seats)}</details>`).join('')}</section>`;}
 function animateDeal(){
  clearTimeout(botTimer);dealing=true;render();
- const hand=document.querySelector('.hand-dock .hand'),tiles=[...(hand?.children||[])];
- const original=tiles.map(t=>t.querySelector('img').src);
- const shuffled=[...original];for(let i=shuffled.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];}
- tiles.forEach((t,i)=>{t.querySelector('img').src=shuffled[i];t.style.opacity='0';t.style.transform='translateY(-100px) scale(.6)';t.style.transition='opacity .2s, transform .3s';});
  document.querySelector('.current-status').textContent='发牌中';
- let step=0;function tick(){if(step<tiles.length){for(let i=step;i<Math.min(step+4,tiles.length);i++){tiles[i].style.opacity='1';tiles[i].style.transform='none';}step+=4;dealTimer=setTimeout(tick,300);}else{document.querySelector('.current-status').textContent='整理手牌';tiles.forEach((t,i)=>{t.querySelector('img').src=original[i];t.animate([{transform:'translateY(-16px)'},{transform:'none'}],{duration:450,delay:i*25});});dealTimer=setTimeout(()=>{dealing=false;render();},900);}}
- dealTimer=setTimeout(tick,150);
+ dealTimer=animateOpeningHand(game,view,()=>{dealing=false;render();});
 }
 function act(fn){const before=structuredClone(game);try{fn();clickSound();undo.push(before);if(undo.length>40)undo.shift();selected=-1;liangMode=false;view=game.phase==='react'?nextResponder():game.turn;save();render();}catch(e){game=before;notify(e.message);}}
 function nextResponder(){return [0,1,2].find(i=>i!==game.pending?.source&&!game.pending?.responses[i])??game.turn;}

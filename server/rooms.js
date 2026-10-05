@@ -19,8 +19,8 @@ export class Rooms {
  view(r,token){
   const id=this.member(r,token);let game=null,seat=-1;
   if(r.game){game=structuredClone(r.game);seat=game.seats.indexOf(id);game.wall=Array(game.wall.length).fill('?');
-   game.players.forEach((p,i)=>{if(game.phase!=='ended'&&i!==seat&&!p.liang){p.hand=Array(p.hand.length).fill('?');p.melds=p.melds.map(m=>m.kind==='an'?{...m,tile:'?'}:m);}});
-   if(game.phase!=='ended'&&game.turn!==seat&&!game.players[game.turn].liang)game.drawTile=null;
+   game.players.forEach((p,i)=>{if(seat>=0&&game.phase!=='ended'&&i!==seat&&!p.liang){p.hand=Array(p.hand.length).fill('?');p.melds=p.melds.map(m=>m.kind==='an'?{...m,tile:'?'}:m);}if(seat>=0&&game.phase!=='ended'&&i!==seat)delete p.dealHand;});
+   if(seat>=0&&game.phase!=='ended'&&game.turn!==seat&&!game.players[game.turn].liang)game.drawTile=null;
    if(game.pending)game.pending.responses=Object.fromEntries(Object.entries(game.pending.responses).map(([k,v])=>[k,+k===seat?v:'pass']));
   }
   return {code:r.code,version:r.version,size:r.size,limit:r.limit,cap:r.cap,id,seat,members:r.members.map(m=>({name:m.name,ready:m.ready})),game,nextReady:r.nextReady,complete:!!r.game&&r.game.history.length>=r.limit};

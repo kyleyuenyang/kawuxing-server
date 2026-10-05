@@ -2,7 +2,7 @@ import {build} from 'esbuild';
 import {mkdir,copyFile,writeFile,readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
-import {tileArtwork} from './src/tile-art.js';
+import {tileArtwork} from './src/tile-art-hd.js';
 await mkdir('dist/assets',{recursive:true});
 // Resolve through Node so the native bundler need not scan protected Windows ancestors.
 await build({absWorkingDir:process.cwd(),entryPoints:[resolve('src/app.js')],tsconfigRaw:{},bundle:true,format:'iife',outfile:resolve('dist/app.js'),minify:true,plugins:[{name:'node-files',setup(b){
