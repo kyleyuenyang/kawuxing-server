@@ -44,6 +44,7 @@ export function evaluate(hand,melds=[],ctx={}) {
   if(ctx.liang || ctx.otherLiang) add('亮倒',2);
   if(ctx.gang>0 && ctx.self) add('杠上开花',2);
   if(ctx.gang>1 && ctx.self) add('杠上杠',2);
+  if(ctx.gangShot && !ctx.self) add('杠上炮',2);
   if(ctx.sea) add(ctx.self?'海底自摸':'海底放炮',2);
   const raw=f.reduce((v,x)=>v*x.n,1);
   if(!f.length) add('普通胡',1);
@@ -114,7 +115,7 @@ export function newGame(config={base:1,cap:32,mode:'bots'},previous=null) {
 }
 export function scoresFor(g,w,source=null) {
  const p=g.players[w],hand=source===null?p.hand:[...p.hand,g.pending.tile];
- return Object.fromEntries([0,1,2].filter(a=>a!==w).map(a=>[a,evaluate(hand,p.melds,{winTile:source===null?g.drawTile:g.pending.tile,liang:p.liang,otherLiang:g.players[a].liang,self:source===null,sea:g.wall.length===0,gang:source===null?g.gangChain:0})]));
+ return Object.fromEntries([0,1,2].filter(a=>a!==w).map(a=>[a,evaluate(hand,p.melds,{winTile:source===null?g.drawTile:g.pending.tile,liang:p.liang,otherLiang:g.players[a].liang,self:source===null,sea:g.wall.length===0,gang:source===null?g.gangChain:0,gangShot:source!==null&&!!g.pending.gangShot})]));
 }
 export function canWin(g,w,source=null) {return Object.entries(scoresFor(g,w,source)).filter(([a])=>source===null||+a===source).every(([,s])=>s?.legal&&!s.warning);}
 export function reactionOptions(g,seat){
@@ -170,7 +171,7 @@ export function discard(g,index,reveal=false) {
  const tile=p.hand.splice(index,1)[0];p.river.push(tile);p.hand=sorted(p.hand);if(reveal)p.liang=true;
  g.discardSerial=(g.discardSerial||0)+1;
  g.lastDiscard={seat:g.turn,tile,index:p.river.length-1,handIndex:index,serial:g.discardSerial};
- g.pending={tile,source:g.turn,responses:{}};g.phase='react';g.log.unshift(names[g.seats[g.turn]]+'打出'+tileName(tile)+(reveal?'并亮倒':''));
+ g.pending={tile,source:g.turn,responses:{},gangShot:g.gangChain>0};g.gangChain=0;g.phase='react';g.log.unshift(names[g.seats[g.turn]]+'打出'+tileName(tile)+(reveal?'并亮倒':'')+(g.pending.gangShot?'（杠后出牌）':''));
  autoPass(g);
 }
 export function respond(g,seat,choice) {
