@@ -1,5 +1,5 @@
 import {randomBytes} from 'node:crypto';
-import {newGame,discard,respond,kong,finish,canWin,autoPass,names} from '../src/engine.js';
+import {newGame,discard,respond,kong,finish,canWin,autoPass,names,revealedWaits,reservedKongTiles,selfKongOptions} from '../src/engine.js';
 const fail=(message)=>{throw Error(message);};
 export class Rooms {
  constructor(snapshot=[]){this.rooms=new Map(snapshot);}
@@ -20,13 +20,20 @@ export class Rooms {
   const r=this.rooms.get(code);if(!r)fail('房间不存在');const id=this.member(r,token);
   if(!r.game){r.members.splice(id,1);r.members.forEach(m=>m.ready=false);if(!r.members.length)this.rooms.delete(code);}
   else if(!r.closed){r.closed=true;r.closedReason=`${r.members[id].name}退出了房间，本桌已结束，未完成的本局不计分。`;r.nextReady=[];}
-  r.version++;r.updated=Date.now();return {left:true};
+  r.version++;r.updated=Date.now();return {left:true,...(r.game?{snapshot:this.view(r,token)}:{})};
  }
  view(r,token){
   const id=this.member(r,token);let game=null,seat=-1;
   if(r.game){game=structuredClone(r.game);seat=game.seats.indexOf(id);game.wall=Array(game.wall.length).fill('?');
-   game.players.forEach((p,i)=>{if(seat>=0&&game.phase!=='ended'&&i!==seat&&!p.liang){p.hand=Array(p.hand.length).fill('?');p.melds=p.melds.map(m=>m.kind==='an'?{...m,tile:'?'}:m);}if(seat>=0&&game.phase!=='ended'&&i!==seat)delete p.dealHand;});
+   game.players.forEach((p,i)=>{
+    if(seat>=0&&game.phase!=='ended'&&i!==seat){
+     if(p.liang){p.publicWaits=revealedWaits(r.game,i);const hidden=reservedKongTiles(r.game.players[i]);p.hand=p.hand.map(t=>hidden.includes(t)?'?':t);}
+     else p.hand=Array(p.hand.length).fill('?');
+     delete p.dealHand;delete p.liangKongTiles;
+    }
+   });
    if(seat>=0&&game.phase!=='ended'&&game.turn!==seat&&!game.players[game.turn].liang)game.drawTile=null;
+   if(seat>=0&&game.turn!==seat&&reservedKongTiles(r.game.players[game.turn]).includes(game.drawTile))game.drawTile=null;
    if(game.pending)game.pending.responses=Object.fromEntries(Object.entries(game.pending.responses).map(([k,v])=>[k,+k===seat?v:'pass']));
   }
   return {code:r.code,version:r.version,size:r.size,limit:r.limit,cap:r.cap,id,seat,members:r.members.map(m=>({name:m.name,ready:m.ready})),game,nextReady:r.nextReady,closed:!!r.closed,closedReason:r.closedReason,complete:!!r.game&&r.game.history.length>=r.limit};
@@ -56,9 +63,9 @@ export class Rooms {
   }catch(e){this.rooms.set(code,before);throw e;}
  }
  tick(){let changed=false;for(const r of this.rooms.values()){
-  if(Date.now()-r.updated>86400000){this.rooms.delete(r.code);changed=true;continue;}
+  if(!r.game&&Date.now()-r.updated>86400000){this.rooms.delete(r.code);changed=true;continue;}
   const g=r.game;if(r.closed||!g||g.phase!=='discard'||Date.now()<r.autoAt)continue;
   r.members.forEach((m,i)=>names[i]=m.name);
-  if(g.players[g.turn].liang&&!canWin(g,g.turn)){discard(g,g.players[g.turn].hand.lastIndexOf(g.drawTile));autoPass(g);r.version++;r.updated=Date.now();r.autoAt=Date.now()+650;changed=true;}
+  if(g.players[g.turn].liang&&!canWin(g,g.turn)&&!selfKongOptions(g).length){discard(g,g.players[g.turn].hand.lastIndexOf(g.drawTile));autoPass(g);r.version++;r.updated=Date.now();r.autoAt=Date.now()+650;changed=true;}
  }return changed;}
 }

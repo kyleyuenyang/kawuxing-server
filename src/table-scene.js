@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {WALL_SIDES,SEAT_SIDE} from './wall.js';
+import {reservedKongTiles} from './engine.js';
 let renderer, scene, camera, tiles, host, frame, marker;
 let flight=null,lastKey=null,eventStart=-Infinity;
 let wallPieces=[],openingKey=null,openingStart=-Infinity,currentWallState=null;
@@ -53,7 +54,7 @@ function tile(t,x,z,rotation=0,hidden=false){
  if(hidden){mesh(standing,ivory,0,.30,0,group);mesh(back,jade,0,.30,.143,group);}
  else{
   mesh(box,jade,0,.02,0,group);mesh(box,ivory,0,.16,0,group);
-  if(t==='?')return group;
+  if(t==='?'){mesh(wallBack,jade,0,.29,0,group);return group;}
   if(!mats.has(t)){const map=loader.load('assets/'+t+'.svg');map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=renderer.capabilities.getMaxAnisotropy();mats.set(t,new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));}
   const plane=mesh(face,mats.get(t),0,.281,0,group);plane.rotation.x=-Math.PI/2;
  }
@@ -89,8 +90,10 @@ export function mountScene(element,g,view,showAll){
  lastKey=key||'empty';renderer.domElement.dataset.marker='none';renderer.domElement.dataset.flight='landed';
  const left=(view+2)%3,right=(view+1)%3;
  for(const [seat,x,rot]of [[left,-8.4,Math.PI/2],[right,8.4,-Math.PI/2]]){
-  const p=g.players[seat];p.hand.forEach((t,i)=>tile(t,x,-4+i*.64,rot,!(p.liang||showAll)));
-  p.melds.forEach((m,j)=>{for(let k=0;k<(m.kind==='peng'?3:4);k++)tile(m.tile,x+(x<0?1:-1),-4+j*1.8+k*.45,rot);});
+  const p=g.players[seat],covered=showAll?[]:reservedKongTiles(p);p.hand.forEach((t,i)=>tile(t==='?'||covered.includes(t)?'?':t,x,-4+i*.64,rot,!(p.liang||showAll)));
+  const meldSpan=p.melds.reduce((sum,m)=>sum+(m.kind==='peng'?3:4)*.64+.32,0);
+  const meldScale=Math.min(1,8.1/Math.max(1,meldSpan));let meldOffset=-4;
+  p.melds.forEach(m=>{const count=m.kind==='peng'?3:4;for(let k=0;k<count;k++)tile(m.kind==='an'&&k===0?'?':m.tile,x+(x<0?1:-1),meldOffset+k*.64*meldScale,rot).scale.setScalar(meldScale);meldOffset+=(count*.64+.32)*meldScale;});
  }
  for(const [seat,side]of [[view,0],[left,-1],[right,1]]){
   const p=g.players[seat];p.river.forEach((t,i)=>{

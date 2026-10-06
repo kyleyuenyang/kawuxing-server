@@ -1,11 +1,14 @@
-import {names,tileName,sorted} from './engine.js';
+import {names as defaultNames,tileName,sorted} from './engine.js';
 
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const signed=v=>(v>0?'+':'')+v;
 const face=(t,win=false)=>`<span class="settle-tile ${win?'winning-tile':''}"><img src="assets/${t}.svg" alt="${tileName(t)}">${win?'<b>胡</b>':''}</span>`;
 export const roundTime=r=>r.endedAt?new Date(r.endedAt).toLocaleString('zh-CN',{hour12:false}):'早期记录';
 
-export function resultHTML(r,seats){
+export function roundSummaryHTML(r,names=defaultNames){return `<strong>第 ${r.round} 局 · ${r.winners?.length?r.winners.map(w=>esc(names[r.seats[w]])).join('、')+(r.source===null?'自摸':'胡牌'):'流局查叫'}</strong><span class="round-summary-scores">${r.delta.map((v,i)=>`<span class="${v>0?'positive':v<0?'negative':''}">${esc(names[r.seats[i]])} ${signed(v)}分</span>`).join('')}</span>`;}
+export function historyHTML(history,names=defaultNames){return history.map(r=>`<details class="history-round" data-round-id="${esc(r.id||r.round)}"><summary>${roundSummaryHTML(r,names)}</summary>${resultHTML(r,r.seats,names)}</details>`).join('');}
+export function totalsHTML(totals,names=defaultNames){return `<div class="match-totals">${names.map((name,i)=>`<p>${esc(name)} <strong class="${totals[i]>=0?'positive':'negative'}">${signed(totals[i]||0)}分</strong></p>`).join('')}</div>`;}
+export function resultHTML(r,seats,names=defaultNames){
  const winners=r.winners||[],isWin=winners.length>0;
  const title=isWin?winners.map(w=>names[seats[w]]).join('、')+(r.source===null?'自摸':'胡牌'):'流局查叫';
  const hands=r.players?`<div class="settled-hands">${r.players.map((p,i)=>{

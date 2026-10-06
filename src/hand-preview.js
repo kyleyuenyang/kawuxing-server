@@ -1,11 +1,11 @@
-import {TYPES,counts,waits,discardPolicy,amount} from './engine.js';
+import {TYPES,counts,waits,discardPolicy,amount,reservedKongTiles} from './engine.js';
 // Only the viewer's hand and public information may enter the counter.
 export function remainingTiles(g,view){
  const seen=[...g.players[view].hand];
  g.players.forEach((p,i)=>{
   seen.push(...p.river);
-  for(const m of p.melds)if(i===view||m.kind!=='an')seen.push(...Array(m.kind==='peng'?3:4).fill(m.tile));
-  if(i!==view&&p.liang)seen.push(...p.hand);
+  for(const m of p.melds)seen.push(...Array(m.kind==='peng'?3:4).fill(m.tile));
+  if(i!==view&&p.liang){const hidden=reservedKongTiles(p);seen.push(...p.hand.filter(t=>!hidden.includes(t)));}
  });
  const c=counts(seen);return Object.fromEntries(TYPES.map(t=>[t,Math.max(0,4-(c[t]||0))]));
 }

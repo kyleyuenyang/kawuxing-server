@@ -64,6 +64,7 @@ export function waits(hand,melds=[],liang=false,minimum=2) {
 export function revealedWaits(g,seat) {
  const p=g.players[seat];
  if(!p?.liang)return [];
+ if(p.publicWaits)return p.publicWaits;
  const hand=[...p.hand];
  if(hand.length+p.melds.length*3===14){
   if(g.turn!==seat||!g.drawTile)return [];
@@ -72,6 +73,30 @@ export function revealedWaits(g,seat) {
   hand.splice(index,1);
  }
  return waits(hand,p.melds,true);
+}
+// A reserved triplet may be exposed as a kong only if the exact wait set stays fixed.
+export function reservedKongTiles(p){
+ if(!p.liang)return [];
+ if(p.liangKongTiles)return p.liangKongTiles;
+ return Object.entries(counts(p.hand)).filter(([,n])=>n===3).map(([t])=>t).filter(t=>liangKongAllowed(p,t));
+}
+export function liangKongAllowed(p,tile){
+ if(!p.liang||counts(p.hand)[tile]!==3)return false;
+ const before=waits(p.hand,p.melds,true).map(w=>w.tile).sort();
+ const after=waits(p.hand.filter(t=>t!==tile),[...p.melds,{kind:'ming',tile}],true).map(w=>w.tile).sort();
+ return before.length>0&&JSON.stringify(before)===JSON.stringify(after);
+}
+export function selfKongOptions(g,seat=g.turn){
+ if(g.phase!=='discard'||g.turn!==seat||!g.wall.length)return [];
+ const p=g.players[seat],out=[];
+ for(const [tile,n] of Object.entries(counts(p.hand))){
+  if(n===4){
+   const index=p.hand.lastIndexOf(tile),before={...p,hand:p.hand.filter((_,i)=>i!==index)};
+   if(!p.liang||(g.drawTile===tile&&reservedKongTiles(before).includes(tile)&&liangKongAllowed(before,tile)))out.push({tile,kind:'an'});
+  }
+  if(!p.liang&&p.melds.some(m=>m.kind==='peng'&&m.tile===tile&&!m.supplementForbidden))out.push({tile,kind:'bu'});
+ }
+ return out;
 }
 export function drawSettlement(players,kongs,config) {
  // Draw readiness is a completed shape, not permission to claim a one-point win.
@@ -123,7 +148,7 @@ export function reactionOptions(g,seat){
  const p=g.players[seat],n=counts(p.hand)[g.pending.tile]||0,options=[];
  if(canWin(g,seat,g.pending.source))options.push('hu');
  if(!p.liang&&n>=2)options.push('peng');
- if(!p.liang&&n>=3&&g.wall.length)options.push('ming');
+ if(n>=3&&g.wall.length&&(!p.liang||liangKongAllowed(p,g.pending.tile)))options.push('ming');
  return options;
 }
 export function autoPass(g){
@@ -168,7 +193,7 @@ export function discard(g,index,reveal=false) {
  if(!discardPolicy(g).allowed.includes(index))throw Error(p.liang?'亮倒后只允许摸切':'有安全牌可打，不能打亮倒玩家的炮牌');
  const after=p.hand.filter((_,i)=>i!==index);
  if(reveal&&!waits(after,p.melds,true).length) throw Error('打出此牌后不能听牌，无法亮倒');
- const tile=p.hand.splice(index,1)[0];p.river.push(tile);p.hand=sorted(p.hand);if(reveal)p.liang=true;
+ const tile=p.hand.splice(index,1)[0];p.river.push(tile);p.hand=sorted(p.hand);if(reveal){p.liang=true;p.liangKongTiles=reservedKongTiles(p);}
  g.discardSerial=(g.discardSerial||0)+1;
  g.lastDiscard={seat:g.turn,tile,index:p.river.length-1,handIndex:index,serial:g.discardSerial};
  g.pending={tile,source:g.turn,responses:{},gangShot:g.gangChain>0};g.gangChain=0;g.phase='react';g.log.unshift(names[g.seats[g.turn]]+'打出'+tileName(tile)+(reveal?'并亮倒':'')+(g.pending.gangShot?'（杠后出牌）':''));
@@ -179,7 +204,7 @@ export function respond(g,seat,choice) {
  if(g.phase!=='react'||seat===g.pending.source||g.pending.responses[seat])throw Error('当前座位不能响应');
  const p=g.players[seat],n=counts(p.hand)[g.pending.tile]||0;
  if(choice==='hu'&&!canWin(g,seat,g.pending.source))throw Error('未满足胡牌条件');
- if(['peng','ming'].includes(choice)&&(p.liang||n<(choice==='peng'?2:3)||!g.wall.length&&choice==='ming'))throw Error('不能碰杠');
+ if(['peng','ming'].includes(choice)&&!reactionOptions(g,seat).includes(choice))throw Error('不能碰杠，亮倒后杠牌不能改变听牌');
  g.pending.responses[seat]=choice;
  if(Object.keys(g.pending.responses).length<2)return;
  const source=g.pending.source, tile=g.pending.tile, responses=g.pending.responses;
@@ -188,8 +213,9 @@ export function respond(g,seat,choice) {
  const claimant=[(source+1)%3,(source+2)%3].find(i=>['peng','ming'].includes(responses[i]));
  if(claimant!==undefined){
   const kind=responses[claimant],pl=g.players[claimant],take=kind==='peng'?2:3;
+  const supplementForbidden=kind==='peng'&&counts(pl.hand)[tile]===3;
   for(let i=0;i<take;i++)pl.hand.splice(pl.hand.indexOf(tile),1);
-  pl.melds.push({kind,tile});g.players[source].river.pop();g.pending=null;g.turn=claimant;g.gangChain=0;
+  pl.melds.push({kind,tile,...(supplementForbidden?{supplementForbidden:true}:{})});g.players[source].river.pop();g.pending=null;g.turn=claimant;g.gangChain=0;
   g.log.unshift(names[g.seats[claimant]]+(kind==='peng'?'碰':'明杠')+tileName(tile));
   if(kind==='ming'){g.kongs.push({from:source,to:claimant,amount:3*g.config.base,why:'明杠 '+tileName(tile)});g.gangChain=1;draw(g,claimant,true);}else{g.phase='discard';g.drawTile=null;}
  } else draw(g,(source+1)%3);
@@ -220,7 +246,7 @@ export function botStep(g,seat) {
   if(seat===g.pending.source||g.pending.responses[seat])return;
   if(canWin(g,seat,g.pending.source)){respond(g,seat,'hu');return;}
   const t=g.pending.tile,n=counts(p.hand)[t]||0;
-  if(!p.liang&&n>=3&&g.wall.length){respond(g,seat,'ming');return;}
+  if(reactionOptions(g,seat).includes('ming')){respond(g,seat,'ming');return;}
   if(!p.liang&&n>=2){
    const h=[...p.hand];h.splice(h.indexOf(t),1);h.splice(h.indexOf(t),1);
    const after={hand:h,melds:[...p.melds,{kind:'peng',tile:t}],liang:false};
@@ -231,20 +257,16 @@ export function botStep(g,seat) {
  }
  if(g.turn!==seat)return;
  if(canWin(g,seat)){finish(g,[seat]);return;}
- if(!p.liang&&g.wall.length){
-  const c=counts(p.hand), t=Object.keys(c).find(t=>c[t]===4);
-  if(t){kong(g,t,'an');return;}
-  const m=p.melds.find(m=>m.kind==='peng'&&c[m.tile]);
-  if(m){kong(g,m.tile,'bu');return;}
- }
+ const option=selfKongOptions(g,seat)[0];if(option){kong(g,option.tile,option.kind);return;}
  const best=chooseDiscard(p,g.drawTile,discardPolicy(g,seat).allowed);discard(g,best.index,best.reveal);
 }
 export function kong(g,tile,kind) {
  if(g.phase!=='discard'||!g.wall.length)throw Error('当前不能杠');
- const p=g.players[g.turn];if(p.liang)throw Error('亮倒后杠牌规则尚待确认，本版暂不开放');
+ const p=g.players[g.turn];
+ if(p.liang&&!selfKongOptions(g).some(o=>o.tile===tile&&o.kind===kind))throw Error('亮倒后只能暗杠保留的同牌，且不能改变听牌');
  const n=counts(p.hand)[tile]||0;
  if(kind==='an') {if(n!==4)throw Error('暗杠需4张'); for(let i=0;i<4;i++)p.hand.splice(p.hand.indexOf(tile),1);p.melds.push({kind,tile});}
- else {const m=p.melds.find(m=>m.kind==='peng'&&m.tile===tile);if(!m||!n)throw Error('不能补杠');p.hand.splice(p.hand.indexOf(tile),1);m.kind='bu';}
+ else {const m=p.melds.find(m=>m.kind==='peng'&&m.tile===tile);if(!m||!n)throw Error('不能补杠');if(m.supplementForbidden)throw Error('这组牌已选择碰并放弃杠，不能再补杠');p.hand.splice(p.hand.indexOf(tile),1);m.kind='bu';}
  for(let a=0;a<3;a++)if(a!==g.turn)g.kongs.push({from:a,to:g.turn,amount:(kind==='an'?2:1)*g.config.base,why:(kind==='an'?'暗杠 ':'补杠 ')+tileName(tile)});
  g.gangChain++;g.log.unshift(names[g.seats[g.turn]]+(kind==='an'?'暗杠':'补杠')+tileName(tile));draw(g,g.turn,true);
 }

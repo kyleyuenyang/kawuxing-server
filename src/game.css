@@ -29,6 +29,14 @@
 .wall-counter{left:50%;top:24px;transform:translateX(-50%);width:70px;height:32px;display:flex;align-items:center;justify-content:center;gap:6px;background:#155c38;z-index:5}.wall-counter b{font-size:20px;line-height:28px}.wall-counter small{color:white;font-size:11px}.room-tags{margin-right:80px}.spectator-switch{position:absolute;z-index:8;left:50%;top:62px;transform:translateX(-50%);display:flex;gap:8px}.spectator-switch button{background:#183f56;color:white;border:1px solid #759bb4;padding:8px 16px}.spectator-switch button[aria-pressed=true]{background:#e6c77b;color:#213540}.spectator-switch~.hand-preview{display:none}
 .hand-preview footer{display:block;margin:5px 0 0!important;padding:0;border:0;max-width:none}
 .wall-counter{left:auto;right:150px;transform:none}
+/* Keep exposed sets distinct without shrinking their faces. */
+.game-actions{gap:24px}.game-actions [data-choice]{min-width:88px;height:82px}.game-actions [data-choice="pass"]{margin-right:40px}.game-actions [data-action="pass-kong"]{margin-left:40px}
+.own-meld .tile.face-down,.settle-tile.face-down{background:#079824;border-color:#dde3d3}.face-down img{visibility:hidden}
+.round-summary-scores{display:flex;gap:10px 24px;flex-wrap:wrap;margin-top:8px;font-size:14px;font-weight:400}.history-round>summary{padding:14px;cursor:pointer;text-align:left}.archived-room{border-top:1px solid #b8c9c7;margin-top:24px;padding-top:16px}.archive-screen .detailed-result{text-align:left}
+.own-melds{gap:26px}.own-meld{gap:5px}.own-meld .tile{flex-shrink:0}
+.settled-tiles{gap:18px}.settled-meld{gap:4px}
+#connection-status{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:150;max-width:calc(100% - 24px);width:max-content;display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff5d7;color:#563e12;border:1px solid #d6b75e;border-radius:6px;box-shadow:0 3px 16px #0003;font-size:14px;flex-wrap:wrap}
+#connection-status button{padding:6px 10px;color:#563e12;background:white;border:1px solid #bfa35c;white-space:nowrap}
 /* The approved face proportions apply to hands, melds, hints and settlements. */
 .hand-dock .hand .tile{aspect-ratio:7/10;padding:2px;border:1px solid #d2cebc;border-bottom:3px solid #c6c2b0;border-radius:7px;background:linear-gradient(110deg,#fffdf4,#f4f0e3);box-shadow:0 2px 0 #617160,0 2px 4px #14203455}
 .hand-dock .hand img{width:100%;height:100%;object-fit:contain;filter:none}
