@@ -18,6 +18,7 @@ const server=createServer(async(req,res)=>{
    const token=(req.headers.authorization||'').replace(/^Bearer /,'');let data;
    if(url.pathname==='/api/create'&&req.method==='POST')data=rooms.create(body);
    else if(url.pathname==='/api/join'&&req.method==='POST')data=rooms.join(String(body.code),body);
+   else if(url.pathname==='/api/leave'&&req.method==='POST')data=rooms.leave(String(body.code),token);
    else if(url.pathname==='/api/room'&&req.method==='GET'){const r=rooms.rooms.get(url.searchParams.get('code'));if(!r)throw Error('房间不存在');data=rooms.view(r,token);}
    else if(url.pathname==='/api/action'&&req.method==='POST')data=rooms.action(String(body.code),token,body);
    else return json(res,404,{error:'接口不存在'});

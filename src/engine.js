@@ -1,5 +1,5 @@
 import Majiang from '@kobalab/majiang-core';
-import {dealWall} from './wall.js';
+import {dealWall,roundId} from './wall.js';
 
 export const TYPES = [...['p','s'].flatMap(s => Array.from({length:9},(_,i)=>s+(i+1))), 'z5','z6','z7'];
 export const names = ['阿源','小林','阿慧','阿杰'];
@@ -139,7 +139,7 @@ export function finish(g,winners=[],source=null) {
  const next=nextSeats(g.seats,g.bench,winners,source,g.lastDraw);
  // Freeze before rotating seats or dealing the next round; ron tile stays separate.
  g.result={...s,winners:[...winners],source,next,round:g.round,seats:[...g.seats],
-  id:crypto.randomUUID(),endedAt:new Date().toISOString(),config:{...g.config},
+  id:roundId(),endedAt:new Date().toISOString(),config:{...g.config},
   players:structuredClone(g.players),scores:structuredClone(scores),
   winTile:winners.length?(source===null?g.drawTile:g.pending.tile):null,
   kongs:structuredClone(g.kongs),actions:[...g.log].reverse()};g.phase='ended';

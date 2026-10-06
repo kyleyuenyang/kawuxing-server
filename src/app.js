@@ -6,6 +6,7 @@ import {Menu,X,Pause,Maximize,Volume2,VolumeX} from 'lucide';
 import {gameTable} from './game-table.js';
 import {mountScene,resizeScene} from './table-scene.js';
 import {animateOpeningHand} from './deal-animation.js';
+import {mountTableExperience} from './table-experience.js';
 import {discardPreviews} from './hand-preview.js';
 import {resultHTML,roundTime} from './settlement.js';
 import {createSession,everyoneReady,sessionRounds,sessionComplete,sessionTotals} from './session.js';
@@ -46,7 +47,7 @@ function animateDeal(){
  document.querySelector('.current-status').textContent='发牌中';
  dealTimer=animateOpeningHand(game,view,()=>{dealing=false;render();});
 }
-function act(fn){const before=structuredClone(game);try{fn();clickSound();undo.push(before);if(undo.length>40)undo.shift();selected=-1;liangMode=false;view=game.phase==='react'?nextResponder():game.turn;save();render();}catch(e){game=before;notify(e.message);}}
+function act(fn){const before=structuredClone(game);try{fn();undo.push(before);if(undo.length>40)undo.shift();selected=-1;liangMode=false;view=game.phase==='react'?nextResponder():game.turn;save();render();}catch(e){game=before;notify(e.message);}}
 function nextResponder(){return [0,1,2].find(i=>i!==game.pending?.source&&!game.pending?.responses[i])??game.turn;}
 function meldHTML(m){return `<span class="meld" title="${{peng:'碰',ming:'明杠',an:'暗杠',bu:'补杠'}[m.kind]}">${Array(m.kind==='peng'?3:4).fill(0).map(()=>tile(m.tile,'tiny','disabled')).join('')}<small>${{peng:'碰',ming:'明',an:'暗',bu:'补'}[m.kind]}</small></span>`;}
 function settings(){return `<dialog id="settings"><form id="setup"><h2>开一桌</h2><label>参与方式<select name="mode"><option value="rotate" ${game.config.mode==='rotate'?'selected':''}>四人轮换 · 胡牌者下场</option><option value="three" ${game.config.mode==='three'?'selected':''}>三人对局</option><option value="watch" ${game.config.mode==='watch'?'selected':''}>三人对局 + 第四人观战</option></select></label><label>底分<input name="base" type="number" min="1" max="100" value="${game.config.base}" required></label><label>封顶<select name="cap">${[16,32,0].map(n=>`<option value="${n}" ${game.config.cap===n?'selected':''}>${n?n+'倍封顶':'无封顶'}</option>`).join('')}</select></label><div class="notice">新开一桌将重置当前牌局和累计积分，已结算流水保留。仅娱乐积分。</div><div class="dialog-actions"><button type="button" data-action="close">取消</button><button class="primary">开始新桌</button></div></form></dialog>`;}
@@ -71,7 +72,7 @@ function render(){
  document.querySelector('#app').innerHTML=(tab==='table'?gameTable(game,view,selected,showAll,botsPaused,undo.length,tile,ico,resultHTML,liangMode):`<header class="main-header"><div class="brand"><span>伍</span><h1>好友卡五星</h1></div><button data-nav="table">${ico('arrow-right')} 返回牌桌</button></header><nav class="nav">${[['lab','flask-conical','牌型验算'],['history','history','战绩'],['rules','book-open','规则']].map(([v,i,t])=>`<button data-nav="${v}" class="${tab===v?'active':''}">${ico(i)}${t}</button>`).join('')}</nav><main>${tab==='lab'?labPage():tab==='rules'?rulesPage():historyPage()}</main>`)+settings();
  if(tab==='table'&&(!session.started||sessionComplete(session,game.history))){document.querySelector('#app').innerHTML=(!session.started?lobbyHTML():matchHTML())+settings();}
  else if(tab==='table'){layoutArena();mountScene(document.querySelector('#scene-host'),game,view,showAll);document.querySelector('[data-action="sound"]').innerHTML=ico(soundOn?'volume-2':'volume-x');document.querySelector('.game-title small').textContent=`第 ${game.round} / ${session.limit} 局`;}
- createIcons({icons});bind();
+ bind();if(tab==='table'&&document.querySelector('#arena'))mountTableExperience(game,ico,{history:sessionRounds(session,game.history)});createIcons({icons});
 }
 function layoutArena(){const el=document.querySelector('#arena');if(!el)return;const portrait=innerHeight>innerWidth,w=portrait?innerHeight:innerWidth,h=portrait?innerWidth:innerHeight;const scale=h/720,width=Math.max(1100,w/scale);el.style.width=width+'px';el.style.transform=`translate(-50%,-50%) rotate(${portrait?90:0}deg) scale(${Math.min(scale,w/width)})`;resizeScene();}
 window.addEventListener('resize',layoutArena);
@@ -92,7 +93,15 @@ function bind(){
  const option=new Option('单人练习 · 两位电脑陪打','bots',game.config.mode==='bots',game.config.mode==='bots');modes.prepend(option);
  document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>{tab=b.dataset.nav;selected=-1;liangMode=false;render();});
  document.querySelectorAll('[data-seat]').forEach(b=>b.onclick=()=>{view=+b.dataset.seat;selected=-1;liangMode=false;render();});
- document.querySelectorAll('[data-tile-index]').forEach(b=>b.onclick=()=>{selected=+b.dataset.tileIndex;render();});
+ document.querySelectorAll('[data-tile-index]').forEach(b=>{
+  b.onclick=()=>{if(dealing)return;selected=+b.dataset.tileIndex;render();};
+  b.oncontextmenu=e=>{
+   e.preventDefault();
+   if(dealing||!session.started||sessionComplete(session,game.history)||game.phase!=='discard'||game.turn!==view)return;
+   if(b.dataset.discardAllowed!=='true'){notify('这张牌当前不能出');return;}
+   act(()=>discard(game,+b.dataset.tileIndex));
+  };
+ });
  document.querySelector('#all-hands')?.addEventListener('change',e=>{showAll=e.target.checked;render();});
  document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>act(()=>respond(game,view,b.dataset.choice)));
  document.querySelectorAll('[data-kong-tile]').forEach(b=>b.onclick=()=>{if(dealing||game.turn!==view||game.phase!=='discard')return;act(()=>kong(game,b.dataset.kongTile,b.dataset.kongKind));});

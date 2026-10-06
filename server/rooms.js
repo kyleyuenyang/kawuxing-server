@@ -11,11 +11,17 @@ export class Rooms {
   return this.join(code,input);
  }
  join(code,input){
-  const r=this.rooms.get(code);if(!r)fail('房间不存在');if(r.game||r.members.length>=r.size)fail('房间已开局或已满');
+  const r=this.rooms.get(code);if(!r)fail('房间不存在');if(r.closed||r.game||r.members.length>=r.size)fail('房间已开局或已满');
   const name=String(input.name||'').trim().replace(/[&<>"']/g,'').slice(0,12);if(!name)fail('请输入昵称');
   const token=randomBytes(32).toString('hex');r.members.push({name,token,ready:false});r.version++;r.updated=Date.now();return {code,token,...this.view(r,token)};
  }
  member(r,token){const id=r.members.findIndex(m=>m.token===token);if(id<0)fail('入桌凭证无效，请重新加入');return id;}
+ leave(code,token){
+  const r=this.rooms.get(code);if(!r)fail('房间不存在');const id=this.member(r,token);
+  if(!r.game){r.members.splice(id,1);r.members.forEach(m=>m.ready=false);if(!r.members.length)this.rooms.delete(code);}
+  else if(!r.closed){r.closed=true;r.closedReason=`${r.members[id].name}退出了房间，本桌已结束，未完成的本局不计分。`;r.nextReady=[];}
+  r.version++;r.updated=Date.now();return {left:true};
+ }
  view(r,token){
   const id=this.member(r,token);let game=null,seat=-1;
   if(r.game){game=structuredClone(r.game);seat=game.seats.indexOf(id);game.wall=Array(game.wall.length).fill('?');
@@ -23,10 +29,11 @@ export class Rooms {
    if(seat>=0&&game.phase!=='ended'&&game.turn!==seat&&!game.players[game.turn].liang)game.drawTile=null;
    if(game.pending)game.pending.responses=Object.fromEntries(Object.entries(game.pending.responses).map(([k,v])=>[k,+k===seat?v:'pass']));
   }
-  return {code:r.code,version:r.version,size:r.size,limit:r.limit,cap:r.cap,id,seat,members:r.members.map(m=>({name:m.name,ready:m.ready})),game,nextReady:r.nextReady,complete:!!r.game&&r.game.history.length>=r.limit};
+  return {code:r.code,version:r.version,size:r.size,limit:r.limit,cap:r.cap,id,seat,members:r.members.map(m=>({name:m.name,ready:m.ready})),game,nextReady:r.nextReady,closed:!!r.closed,closedReason:r.closedReason,complete:!!r.game&&r.game.history.length>=r.limit};
  }
  action(code,token,input){
   const r=this.rooms.get(code);if(!r)fail('房间不存在');const id=this.member(r,token);
+  if(r.closed)fail('房间已结束，请返回大厅重新建房');
   if(input.version!==r.version)fail('牌局已更新，请刷新后重试');
   const before=structuredClone(r);
   try{
@@ -50,7 +57,7 @@ export class Rooms {
  }
  tick(){let changed=false;for(const r of this.rooms.values()){
   if(Date.now()-r.updated>86400000){this.rooms.delete(r.code);changed=true;continue;}
-  const g=r.game;if(!g||g.phase!=='discard'||Date.now()<r.autoAt)continue;
+  const g=r.game;if(r.closed||!g||g.phase!=='discard'||Date.now()<r.autoAt)continue;
   r.members.forEach((m,i)=>names[i]=m.name);
   if(g.players[g.turn].liang&&!canWin(g,g.turn)){discard(g,g.players[g.turn].hand.lastIndexOf(g.drawTile));autoPass(g);r.version++;r.updated=Date.now();r.autoAt=Date.now()+650;changed=true;}
  }return changed;}
