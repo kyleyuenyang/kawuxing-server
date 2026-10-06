@@ -112,6 +112,7 @@ function bind(){
  const lf=document.querySelector('#lab-form');if(lf)lf.onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);lab={...lab,hand:f.get('hand').trim(),winTile:f.get('winTile'),liang:f.has('liang'),otherLiang:f.has('otherLiang'),self:f.get('self')==='true',gang:+f.get('gang'),sea:f.has('sea')};render();};
  clearTimeout(botTimer);
  if(!session.started||sessionComplete(session,game.history)||dealing){document.querySelectorAll('[data-tile-index], [data-choice], .game-actions button').forEach(b=>b.disabled=true);return;}
+ if(tab==='table'&&game.phase==='ended'){botTimer=setTimeout(()=>action('next'),3800);return;}
  if(tab==='table'&&game.phase==='discard'&&game.turn===view&&game.players[view].liang&&!canWin(game,view)&&!selfKongOptions(game,view).length){
   botTimer=setTimeout(()=>act(()=>discard(game,game.players[view].hand.lastIndexOf(game.drawTile))),650);
   return;

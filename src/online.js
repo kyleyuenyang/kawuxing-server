@@ -51,8 +51,8 @@ function render(){if(!state)return home();saveArchive();state.members.forEach((m
  if(!g){document.querySelector('#app').innerHTML=`<section class="session-screen"><h1>房间 ${state.code}</h1><h2>${state.limit}局 · ${state.size}人</h2><div class="ready-seats">${Array.from({length:state.size},(_,i)=>`<div class="ready-player"><img src="assets/avatar-${i}.svg" alt=""><strong>${esc(state.members[i]?.name||'等待加入')}</strong><span>${state.members[i]?.ready?'已准备':'未准备'}</span></div>`).join('')}</div><button data-ready> ${state.members[state.id].ready?'取消准备':'准备'}</button><button data-exit>退出</button></section>`;document.querySelector('[data-ready]').onclick=()=>send({type:'ready'});}
  else if(state.complete){resetTableExperience();document.querySelector('#app').innerHTML=`<section class="session-screen"><h1>整场结算 · ${state.code}</h1>${totalsHTML(g.totals,state.members.map(m=>m.name))}${historyHTML(g.history)}<button data-exit>返回大厅</button></section>`;document.querySelectorAll('.ledger-link').forEach(b=>b.remove());}
  else{
-  const spectator=state.seat<0,view=spectator?watchSeat:state.seat;
-  document.querySelector('#app').innerHTML=gameTable(g,view,selected,spectator,false,false,tile,ico,resultHTML,liang);layout();mountScene(document.querySelector('#scene-host'),g,view,spectator);
+  const spectator=state.seat<0,view=spectator?watchSeat:state.seat,revealedViewer=!spectator&&g.players[view].liang;
+  document.querySelector('#app').innerHTML=gameTable(g,view,selected,spectator,false,false,tile,ico,resultHTML,liang);layout();mountScene(document.querySelector('#scene-host'),g,view,spectator||revealedViewer);
   if(spectator){document.querySelector('#arena').insertAdjacentHTML('beforeend',`<nav class="spectator-switch" aria-label="观战视角">${g.players.map((p,i)=>`<button data-watch="${i}" aria-pressed="${view===i}">${esc(names[p.id])}</button>`).join('')}</nav>`);document.querySelectorAll('[data-watch]').forEach(b=>b.onclick=()=>{watchSeat=+b.dataset.watch;selected=-1;liang=false;render();});document.querySelector('.current-status').textContent='观战 · '+names[g.players[view].id];document.querySelectorAll('.game-actions button, [data-choice], [data-tile-index]').forEach(b=>b.disabled=true);}
   document.querySelector('.game-title small').textContent=`房间 ${state.code} · ${g.round}/${state.limit}局`;
   document.querySelectorAll('[data-seat]').forEach(b=>b.disabled=true);
@@ -63,7 +63,7 @@ function render(){if(!state)return home();saveArchive();state.members.forEach((m
   document.querySelectorAll('[data-nav]:not([data-nav="history"]), [data-action="settings"], [data-action="undo"], [data-action="export"], .reveal-option').forEach(b=>b.remove());
   document.querySelector('[data-action="pass-kong"]')?.addEventListener('click',()=>send({type:'discard',index:g.players[state.seat].hand.lastIndexOf(g.drawTile)}));
   mountTableExperience(g,ico,{exit:leaveRoom});
-  if(g.phase==='ended')document.querySelectorAll('[data-action="next"]').forEach(b=>{b.textContent=state.nextReady.includes(state.id)?'已准备，等待其他玩家':'准备下一局';b.disabled=state.nextReady.includes(state.id);});
+  if(g.phase==='ended')document.querySelectorAll('[data-action="next"]').forEach(b=>{b.textContent='下一局即将自动开始';b.disabled=true;});
   if(shownRound!==g.round){shownRound=g.round;if(g.wall.length===44&&g.players.every(p=>!p.river.length&&!p.melds.length)){animating=true;document.querySelectorAll('.game-actions button').forEach(b=>b.disabled=true);animateOpeningHand(g,view,()=>{animating=false;render();});}}
  }
  createIcons({icons});document.querySelector('[data-exit]')?.addEventListener('click',leaveRoom);

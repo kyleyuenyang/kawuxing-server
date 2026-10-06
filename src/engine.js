@@ -65,6 +65,7 @@ export function revealedWaits(g,seat) {
  const p=g.players[seat];
  if(!p?.liang)return [];
  if(p.publicWaits)return p.publicWaits;
+ if(p.liangWaits)return p.liangWaits;
  const hand=[...p.hand];
  if(hand.length+p.melds.length*3===14){
   if(g.turn!==seat||!g.drawTile)return [];
@@ -82,8 +83,16 @@ export function reservedKongTiles(p){
 }
 export function liangKongAllowed(p,tile){
  if(!p.liang||counts(p.hand)[tile]!==3)return false;
- const before=waits(p.hand,p.melds,true).map(w=>w.tile).sort();
+ const before=(p.liangWaits||waits(p.hand,p.melds,true)).map(w=>w.tile).sort();
  const after=waits(p.hand.filter(t=>t!==tile),[...p.melds,{kind:'ming',tile}],true).map(w=>w.tile).sort();
+ return before.length>0&&JSON.stringify(before)===JSON.stringify(after);
+}
+function liangSupplementAllowed(g,p,tile){
+ const meld=p.melds.find(m=>m.kind==='peng'&&m.tile===tile&&!m.supplementForbidden);
+ if(!p.liang||!meld||g.drawTile!==tile||(counts(p.hand)[tile]||0)<1)return false;
+ const before=(p.liangWaits||revealedWaits({players:[p],turn:0,drawTile:tile},0)).map(w=>w.tile).sort();
+ const index=p.hand.lastIndexOf(tile),hand=p.hand.filter((_,i)=>i!==index),melds=p.melds.map(m=>m===meld?{...m,kind:'bu'}:m);
+ const after=waits(hand,melds,true).map(w=>w.tile).sort();
  return before.length>0&&JSON.stringify(before)===JSON.stringify(after);
 }
 export function selfKongOptions(g,seat=g.turn){
@@ -94,7 +103,7 @@ export function selfKongOptions(g,seat=g.turn){
    const index=p.hand.lastIndexOf(tile),before={...p,hand:p.hand.filter((_,i)=>i!==index)};
    if(!p.liang||(g.drawTile===tile&&reservedKongTiles(before).includes(tile)&&liangKongAllowed(before,tile)))out.push({tile,kind:'an'});
   }
-  if(!p.liang&&p.melds.some(m=>m.kind==='peng'&&m.tile===tile&&!m.supplementForbidden))out.push({tile,kind:'bu'});
+  if(p.melds.some(m=>m.kind==='peng'&&m.tile===tile&&!m.supplementForbidden)&&(!p.liang||liangSupplementAllowed(g,p,tile)))out.push({tile,kind:'bu'});
  }
  return out;
 }
@@ -191,9 +200,9 @@ export function discard(g,index,reveal=false) {
  if(g.phase!=='discard') throw Error('当前不是出牌阶段');
  const p=g.players[g.turn];if(index<0||index>=p.hand.length)throw Error('请选择手牌');
  if(!discardPolicy(g).allowed.includes(index))throw Error(p.liang?'亮倒后只允许摸切':'有安全牌可打，不能打亮倒玩家的炮牌');
- const after=p.hand.filter((_,i)=>i!==index);
- if(reveal&&!waits(after,p.melds,true).length) throw Error('打出此牌后不能听牌，无法亮倒');
- const tile=p.hand.splice(index,1)[0];p.river.push(tile);p.hand=sorted(p.hand);if(reveal){p.liang=true;p.liangKongTiles=reservedKongTiles(p);}
+ const after=p.hand.filter((_,i)=>i!==index),ready=reveal?waits(after,p.melds,true):[];
+ if(reveal&&!ready.length) throw Error('打出此牌后不能听牌，无法亮倒');
+ const tile=p.hand.splice(index,1)[0];p.river.push(tile);p.hand=sorted(p.hand);if(reveal){p.liang=true;p.liangWaits=ready;p.liangKongTiles=reservedKongTiles(p);}
  g.discardSerial=(g.discardSerial||0)+1;
  g.lastDiscard={seat:g.turn,tile,index:p.river.length-1,handIndex:index,serial:g.discardSerial};
  g.pending={tile,source:g.turn,responses:{},gangShot:g.gangChain>0};g.gangChain=0;g.phase='react';g.log.unshift(names[g.seats[g.turn]]+'打出'+tileName(tile)+(reveal?'并亮倒':'')+(g.pending.gangShot?'（杠后出牌）':''));
@@ -263,7 +272,7 @@ export function botStep(g,seat) {
 export function kong(g,tile,kind) {
  if(g.phase!=='discard'||!g.wall.length)throw Error('当前不能杠');
  const p=g.players[g.turn];
- if(p.liang&&!selfKongOptions(g).some(o=>o.tile===tile&&o.kind===kind))throw Error('亮倒后只能暗杠保留的同牌，且不能改变听牌');
+ if(p.liang&&!selfKongOptions(g).some(o=>o.tile===tile&&o.kind===kind))throw Error('亮倒后杠牌不能改变听牌');
  const n=counts(p.hand)[tile]||0;
  if(kind==='an') {if(n!==4)throw Error('暗杠需4张'); for(let i=0;i<4;i++)p.hand.splice(p.hand.indexOf(tile),1);p.melds.push({kind,tile});}
  else {const m=p.melds.find(m=>m.kind==='peng'&&m.tile===tile);if(!m||!n)throw Error('不能补杠');if(m.supplementForbidden)throw Error('这组牌已选择碰并放弃杠，不能再补杠');p.hand.splice(p.hand.indexOf(tile),1);m.kind='bu';}

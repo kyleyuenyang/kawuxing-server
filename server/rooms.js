@@ -25,12 +25,13 @@ export class Rooms {
  view(r,token){
   const id=this.member(r,token);let game=null,seat=-1;
   if(r.game){game=structuredClone(r.game);seat=game.seats.indexOf(id);game.wall=Array(game.wall.length).fill('?');
+   const revealedViewer=seat>=0&&r.game.players[seat].liang;
    game.players.forEach((p,i)=>{
-    if(seat>=0&&game.phase!=='ended'&&i!==seat){
+    if(seat>=0&&game.phase!=='ended'&&i!==seat&&!revealedViewer){
      if(p.liang){p.publicWaits=revealedWaits(r.game,i);const hidden=reservedKongTiles(r.game.players[i]);p.hand=p.hand.map(t=>hidden.includes(t)?'?':t);}
      else p.hand=Array(p.hand.length).fill('?');
-     delete p.dealHand;delete p.liangKongTiles;
     }
+    if(i!==seat){delete p.dealHand;delete p.liangKongTiles;delete p.liangWaits;}
    });
    if(seat>=0&&game.phase!=='ended'&&game.turn!==seat&&!game.players[game.turn].liang)game.drawTile=null;
    if(seat>=0&&game.turn!==seat&&reservedKongTiles(r.game.players[game.turn]).includes(game.drawTile))game.drawTile=null;
@@ -47,8 +48,7 @@ export class Rooms {
    r.members.forEach((m,i)=>names[i]=m.name);
    if(input.type==='ready'&&!r.game){r.members[id].ready=!r.members[id].ready;if(r.members.length===r.size&&r.members.every(m=>m.ready)){r.game=newGame({base:1,cap:r.cap,mode:r.size===4?'rotate':'three'});r.autoAt=Date.now()+2800;}}
    else if(input.type==='next'&&r.game?.phase==='ended'&&r.game.history.length<r.limit){
-    if(!r.nextReady.includes(id))r.nextReady.push(id);
-    if(r.nextReady.length===r.size){const g=r.game;r.game=newGame(g.config,{...g.result.next,round:g.round+1,totals:g.totals,history:g.history});r.nextReady=[];r.autoAt=Date.now()+2800;}
+    const g=r.game;r.game=newGame(g.config,{...g.result.next,round:g.round+1,totals:g.totals,history:g.history});r.nextReady=[];r.autoAt=Date.now()+2800;
    }else{
     const g=r.game;if(!g||g.phase==='ended'||Date.now()<r.autoAt)fail('当前不能操作');const seat=g.seats.indexOf(id);if(seat<0)fail('当前正在候场');
     if(input.type==='respond'){respond(g,seat,input.choice);}
@@ -57,15 +57,17 @@ export class Rooms {
      else if(input.type==='kong')kong(g,input.tile,input.kind);
      else if(input.type==='win'){if(!canWin(g,seat))fail('当前不能自摸');finish(g,[seat]);}
      else fail('操作无效');}
-    autoPass(g);r.autoAt=Date.now()+650;
+    autoPass(g);r.autoAt=Date.now()+(g.phase==='ended'?3800:650);
    }
    r.version++;r.updated=Date.now();return this.view(r,token);
   }catch(e){this.rooms.set(code,before);throw e;}
  }
  tick(){let changed=false;for(const r of this.rooms.values()){
   if(!r.game&&Date.now()-r.updated>86400000){this.rooms.delete(r.code);changed=true;continue;}
-  const g=r.game;if(r.closed||!g||g.phase!=='discard'||Date.now()<r.autoAt)continue;
+  const g=r.game;if(r.closed||!g||Date.now()<r.autoAt)continue;
+  if(g.phase==='ended'&&g.history.length<r.limit){r.game=newGame(g.config,{...g.result.next,round:g.round+1,totals:g.totals,history:g.history});r.nextReady=[];r.autoAt=Date.now()+2800;r.version++;r.updated=Date.now();changed=true;continue;}
+  if(g.phase!=='discard')continue;
   r.members.forEach((m,i)=>names[i]=m.name);
-  if(g.players[g.turn].liang&&!canWin(g,g.turn)&&!selfKongOptions(g).length){discard(g,g.players[g.turn].hand.lastIndexOf(g.drawTile));autoPass(g);r.version++;r.updated=Date.now();r.autoAt=Date.now()+650;changed=true;}
+  if(g.players[g.turn].liang&&!canWin(g,g.turn)&&!selfKongOptions(g).length){discard(g,g.players[g.turn].hand.lastIndexOf(g.drawTile));autoPass(g);r.version++;r.updated=Date.now();r.autoAt=Date.now()+(g.phase==='ended'?3800:650);changed=true;}
  }return changed;}
 }
