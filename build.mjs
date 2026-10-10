@@ -10,7 +10,7 @@ await build({absWorkingDir:process.cwd(),entryPoints:[resolve('src/app.js')],tsc
  b.onResolve({filter:/.*/},args=>({path:createRequire(args.importer||resolve('build.mjs')).resolve(args.path),namespace:'node-files'}));
  b.onLoad({filter:/.*/,namespace:'node-files'},async args=>({contents:await readFile(args.path,'utf8'),loader:args.path.endsWith('.json')?'json':'js'}));
 }}]});
-for(const f of ['index.html','style.css','game.css'])await copyFile('src/'+f,'dist/'+f);
+for(const f of ['index.html','style.css','game.css','visual-refresh.css'])await copyFile('src/'+f,'dist/'+f);
 await writeFile('dist/game.css',(await readFile('src/game.css','utf8'))+'\n'+(await readFile('src/table-experience.css','utf8')));
 await copyFile('node_modules/@kobalab/majiang-core/LICENSE','dist/MAJIANG-LICENSE.txt');
 for(const t of [...['p','s'].flatMap(s=>Array.from({length:9},(_,i)=>s+(i+1))),'z5','z6','z7'])await writeFile(`dist/assets/${t}.svg`,tileArtwork(t));
