@@ -8,7 +8,8 @@ export const VOICE_CUES={
 };
 
 const files=new Map();
-let context,queueAt=0;
+let context,queueAt=0,generation=0,chain=Promise.resolve();
+const activeSources=new Set();
 const enabled=()=>localStorage.getItem('kwx-sound')!=='off';
 
 async function load(file){
@@ -23,13 +24,15 @@ export function unlockVoice(){
  try{context??=new AudioContext();if(context.state==='suspended')context.resume().catch(()=>{});for(const cue of new Set(Object.values(VOICE_CUES).map(x=>x.file)))load(cue).catch(()=>{});}catch{}
 }
 
-export async function speak(key,{delay=0,queue=true}={}){
- const cue=VOICE_CUES[key];if(!cue||!enabled())return;
- try{
-  unlockVoice();const buffer=await load(cue.file);if(!context||context.state!=='running')return;
-  const when=queue?Math.max(context.currentTime+delay,queueAt):context.currentTime+delay;
-  const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=.92;source.connect(gain);gain.connect(context.destination);source.start(when,cue.start,cue.duration);queueAt=when+cue.duration+.08;
- }catch{}
+export function speak(key,{delay=0,queue=true}={}){
+ const version=generation;
+ const schedule=async()=>{const cue=VOICE_CUES[key];if(!cue||!enabled()||version!==generation)return;
+  try{unlockVoice();const buffer=await load(cue.file);if(!enabled()||version!==generation||!context||context.state!=='running')return;
+   const when=queue?Math.max(context.currentTime+delay,queueAt):context.currentTime+delay;
+   const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=.92;source.connect(gain);gain.connect(context.destination);activeSources.add(source);source.onended=()=>activeSources.delete(source);source.start(when,cue.start,cue.duration);queueAt=when+cue.duration+.08;
+  }catch{}
+ };
+ chain=chain.then(schedule,schedule);return chain;
 }
-
-export function resetVoiceQueue(){queueAt=context?.currentTime||0;}
+export async function speakSequence(keys){const version=generation;for(const key of keys){if(version!==generation||!enabled())break;await speak(key);}}
+export function resetVoiceQueue(){generation++;chain=Promise.resolve();for(const source of activeSources){try{source.stop();}catch{}}activeSources.clear();queueAt=context?.currentTime||0;}

@@ -6,7 +6,7 @@ import {Menu,X,Pause,Maximize,Volume2,VolumeX} from 'lucide';
 import {gameTable} from './game-table.js';
 import {mountScene,resizeScene} from './table-scene.js';
 import {animateOpeningHand} from './deal-animation.js';
-import {mountTableExperience} from './table-experience.js';
+import {mountTableExperience,resetTableExperience} from './table-experience.js';
 import {discardPreviews} from './hand-preview.js';
 import {resultHTML,roundTime,historyHTML} from './settlement.js';
 import {createSession,everyoneReady,sessionRounds,sessionComplete,sessionTotals} from './session.js';
@@ -72,7 +72,7 @@ function render(){
  document.querySelector('#app').innerHTML=(tab==='table'?gameTable(game,view,selected,showAll,botsPaused,undo.length,tile,ico,resultHTML,liangMode):`<header class="main-header"><div class="brand"><span>伍</span><h1>好友卡五星</h1></div><button data-nav="table">${ico('arrow-right')} 返回牌桌</button></header><nav class="nav">${[['lab','flask-conical','牌型验算'],['history','history','战绩'],['rules','book-open','规则']].map(([v,i,t])=>`<button data-nav="${v}" class="${tab===v?'active':''}">${ico(i)}${t}</button>`).join('')}</nav><main>${tab==='lab'?labPage():tab==='rules'?rulesPage():historyPage()}</main>`)+settings();
  if(tab==='table'&&(!session.started||sessionComplete(session,game.history))){document.querySelector('#app').innerHTML=(!session.started?lobbyHTML():matchHTML())+settings();}
  else if(tab==='table'){layoutArena();mountScene(document.querySelector('#scene-host'),game,view,showAll);document.querySelector('[data-action="sound"]').innerHTML=ico(soundOn?'volume-2':'volume-x');document.querySelector('.game-title small').textContent=`第 ${game.round} / ${session.limit} 局`;}
- bind();if(tab==='table'&&document.querySelector('#arena'))mountTableExperience(game,ico,{history:sessionRounds(session,game.history)});createIcons({icons});
+ bind();if(tab==='table'&&document.querySelector('#arena'))mountTableExperience(game,ico,{history:sessionRounds(session,game.history)});else resetTableExperience();createIcons({icons});
 }
 function layoutArena(){const el=document.querySelector('#arena');if(!el)return;const portrait=innerHeight>innerWidth,w=portrait?innerHeight:innerWidth,h=portrait?innerWidth:innerHeight;const scale=h/720,width=Math.max(1100,w/scale);el.style.width=width+'px';el.style.transform=`translate(-50%,-50%) rotate(${portrait?90:0}deg) scale(${Math.min(scale,w/width)})`;resizeScene();}
 window.addEventListener('resize',layoutArena);

@@ -6,36 +6,64 @@ let flight=null,lastKey=null,eventStart=-Infinity;
 let wallPieces=[],openingKey=null,openingStart=-Infinity,currentWallState=null;
 const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mats=new Map();
-const box=new THREE.BoxGeometry(.59,.22,.82);
-const wallBack=new THREE.BoxGeometry(.57,.035,.80);
-const face=new THREE.PlaneGeometry(.56,.80);
-const standing=new THREE.BoxGeometry(.58,.8,.26),back=new THREE.BoxGeometry(.52,.70,.025);
-const ivory=new THREE.MeshStandardMaterial({color:0xf8f5e9,roughness:.8});
-const jade=new THREE.MeshStandardMaterial({color:0x079824,roughness:.34,metalness:.05});
+// Real bevelled geometry: each tile has a porcelain body and a separate jade cap.
+function roundedBox(w,h,d,r=.06){
+ const shape=new THREE.Shape(),x=-w/2,y=-h/2;
+ shape.moveTo(x+r,y);shape.lineTo(x+w-r,y);shape.quadraticCurveTo(x+w,y,x+w,y+r);
+ shape.lineTo(x+w,y+h-r);shape.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+ shape.lineTo(x+r,y+h);shape.quadraticCurveTo(x,y+h,x,y+h-r);
+ shape.lineTo(x,y+r);shape.quadraticCurveTo(x,y,x+r,y);
+ const bevel=Math.min(r/2,d/5);
+ const g=new THREE.ExtrudeGeometry(shape,{depth:d-2*bevel,steps:1,bevelEnabled:true,bevelSegments:3,bevelSize:bevel,bevelThickness:bevel,curveSegments:6});
+ g.translate(0,0,-d/2+bevel);g.computeVertexNormals();return g;
+}
+function flatBox(w,h,d,r){const g=roundedBox(w,d,h,r);g.rotateX(-Math.PI/2);return g;}
+const box=flatBox(.60,.24,.84,.055);
+const wallBack=flatBox(.59,.09,.83,.055);
+const face=new THREE.PlaneGeometry(.535,.76);
+// Concealed hands are separate porcelain pieces, with an inset resin back.
+// Their bevel-expanded width stays below the existing .67 hand pitch.
+const standing=roundedBox(.54,.89,.38,.05);
+const backSeat=roundedBox(.55,.88,.055,.05),back=roundedBox(.50,.83,.10,.055);
+const handPorcelain=new THREE.MeshPhysicalMaterial({color:0xe8e7d8,roughness:.4,metalness:0,clearcoat:.25,clearcoatRoughness:.3});
+const backSeam=new THREE.MeshStandardMaterial({color:0xb4cec0,roughness:.4,metalness:0});
+const handJade=new THREE.MeshPhysicalMaterial({color:0x0b7147,emissive:0x166c49,emissiveIntensity:.24,roughness:.34,metalness:0,clearcoat:.65,clearcoatRoughness:.27});
+const ivory=new THREE.MeshStandardMaterial({color:0xfffef7,roughness:.27,metalness:0});
+const jade=new THREE.MeshStandardMaterial({color:0x006b32,roughness:.24,metalness:.02});
 const loader=new THREE.TextureLoader();
-function cloth(){
- const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');
- x.fillStyle='#3568a0';x.fillRect(0,0,256,256);
- for(let i=0;i<256;i++){x.strokeStyle=i%2?'#ffffff0f':'#001b2114';x.beginPath();x.moveTo(i,0);x.lineTo(i,256);x.stroke();x.beginPath();x.moveTo(0,i);x.lineTo(256,i);x.stroke();}
- const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(10,7);t.colorSpace=THREE.SRGBColorSpace;return t;
+function cloth(leather=false){
+ const c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');
+ x.fillStyle=leather?'#294d72':'#4b9fc1';x.fillRect(0,0,512,512);
+ let seed=413;const random=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
+ for(let i=0;i<22000;i++){
+  const px=random()*512,py=random()*512;
+  x.strokeStyle=leather?(i%2?'#65738936':'#01051065'):(i%2?'#bddafc13':'#071c361c');
+  x.lineWidth=leather?.6:.45;x.beginPath();x.moveTo(px,py);x.lineTo(px+(leather?random()*5:2),py+(leather?random()*4:-2));x.stroke();
+ }
+ const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(leather?9:5,leather?9:5);t.colorSpace=THREE.SRGBColorSpace;return t;
 }
 function mesh(geo,material,x,y,z,parent=scene){const m=new THREE.Mesh(geo,material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
 function init(){
- renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.setClearColor(0x202b49);renderer.outputColorSpace=THREE.SRGBColorSpace;
+ renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.setClearColor(0x294c72);renderer.outputColorSpace=THREE.SRGBColorSpace;
  renderer.domElement.setAttribute('aria-label','三维麻将牌桌');
- scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(39,16/9,.1,100);camera.position.set(0,17,13);camera.lookAt(0,0,0);
- scene.add(new THREE.HemisphereLight(0xfff6de,0x345063,2.4));
- const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(-7,16,5);light.castShadow=true;light.shadow.mapSize.set(2048,2048);Object.assign(light.shadow.camera,{left:-15,right:15,top:12,bottom:-12});light.shadow.bias=-.0004;scene.add(light);
- const leather=cloth();leather.repeat.set(45,50);
- const rim=new THREE.MeshStandardMaterial({color:0x252535,map:leather,roughness:.95});
- mesh(new THREE.BoxGeometry(24,.65,29),rim,0,-.6,-5);
- mesh(new THREE.BoxGeometry(22.5,.14,28),new THREE.MeshStandardMaterial({map:cloth(),roughness:1}),0,-.19,-5);
- const seams=new THREE.MeshStandardMaterial({color:0x356094,roughness:1});
- for(const x of [-7.3,7.3]){
-  for(const edge of [-.3,.3])mesh(new THREE.BoxGeometry(.027,.007,9.6),seams,x+edge,-.11,-.3);
-  for(const z of [-5.1,4.5])mesh(new THREE.BoxGeometry(.6,.007,.027),seams,x,-.11,z);
+ scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(42,16/9,.1,100);camera.position.set(0,16,14);camera.lookAt(0,0,1.6);
+ renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
+ scene.add(new THREE.HemisphereLight(0xf0faff,0x527c92,2.6));
+ const light=new THREE.DirectionalLight(0xfff6e3,1.65);light.position.set(-9,18,-3);light.castShadow=true;light.shadow.mapSize.set(2048,2048);Object.assign(light.shadow.camera,{left:-14,right:14,top:13,bottom:-13,near:1,far:45});light.shadow.bias=-.0003;light.shadow.normalBias=.025;light.shadow.radius=4;scene.add(light);
+ scene.add(new THREE.AmbientLight(0xffffff,.55));
+ const rim=new THREE.MeshStandardMaterial({color:0xb7c0cc,map:cloth(true),roughness:.82});
+ mesh(flatBox(23.3,.65,18,.5),rim,0,-.58,0);
+ mesh(flatBox(21.5,.14,16.25,.35),new THREE.MeshStandardMaterial({map:cloth(),roughness:.94}),0,-.19,0);
+ // Inset seams follow the same physical table plane as every tile.
+ const seams=new THREE.MeshStandardMaterial({color:0x397f9b,roughness:1});
+ for(const x of [-7.2,7.2]){
+  for(const edge of [-.34,.34])mesh(new THREE.BoxGeometry(.019,.008,9.8),seams,x+edge,-.108,-.2);
+  for(const z of [-5.1,4.7])mesh(new THREE.BoxGeometry(.68,.008,.019),seams,x,-.108,z);
  }
- for(const z of [-6.4,5.3]){for(const edge of [-.22,.22])mesh(new THREE.BoxGeometry(12,.007,.026),seams,0,-.11,z+edge);}
+ for(const z of [-6.1,5.5]){
+  for(const edge of [-.23,.23])mesh(new THREE.BoxGeometry(12,.008,.019),seams,0,-.108,z+edge);
+  for(const x of [-6,6])mesh(new THREE.BoxGeometry(.019,.008,.46),seams,x,-.108,z);
+ }
  tiles=new THREE.Group();scene.add(tiles);
  marker=mesh(new THREE.ConeGeometry(.18,.38,4),new THREE.MeshStandardMaterial({color:0xffcd57,emissive:0xb9670d,emissiveIntensity:.35}),0,1,0);marker.visible=false;
  marker.rotation.z=Math.PI;
@@ -51,12 +79,18 @@ function init(){
 }
 function tile(t,x,z,rotation=0,hidden=false){
  const group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=rotation;tiles.add(group);
- if(hidden){mesh(standing,ivory,0,.30,0,group);mesh(back,jade,0,.30,.143,group);}
+ if(hidden){
+  // Compensate perspective convergence equally for each concealed tile in a row.
+  group.rotateX(.28);
+  mesh(standing,handPorcelain,0,.355,0,group);
+  mesh(backSeat,backSeam,0,.355,.181,group);
+  mesh(back,handJade,0,.355,.203,group);
+ }
  else{
-  mesh(box,jade,0,.02,0,group);mesh(box,ivory,0,.16,0,group);
-  if(t==='?'){mesh(wallBack,jade,0,.29,0,group);return group;}
+  mesh(wallBack,jade,0,-.055,0,group);mesh(box,ivory,0,.10,0,group);
+  if(t==='?'){mesh(wallBack,jade,0,.225,0,group);return group;}
   if(!mats.has(t)){const map=loader.load('assets/'+t+'.svg');map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=renderer.capabilities.getMaxAnisotropy();mats.set(t,new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));}
-  const plane=mesh(face,mats.get(t),0,.281,0,group);plane.rotation.x=-Math.PI/2;
+  const plane=mesh(face,mats.get(t),0,.229,0,group);plane.rotation.x=-Math.PI/2;
  }
  return group;
 }
@@ -76,7 +110,7 @@ export function mountScene(element,g,view,showAll){
    const z=relative===0?4.9:relative===1?-offset:relative===2?-5.5:offset;
    for(let layer=0;layer<2;layer++){
     const group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=relative%2?Math.PI/2:0;tiles.add(group);
-    mesh(box,ivory,0,.12+layer*.25,0,group);mesh(wallBack,jade,0,.24+layer*.25,0,group);
+    mesh(box,ivory,0,.03+layer*.31,0,group);mesh(wallBack,jade,0,.18+layer*.31,0,group);
     group.userData.order=(stack*2+(1-layer)-g.opening.startStack*2+84)%84;
     // Preserve horizontal placement when animating the initial wall rise.
     wallPieces.push(group);
@@ -89,8 +123,8 @@ export function mountScene(element,g,view,showAll){
  if(fresh)eventStart=performance.now();
  lastKey=key||'empty';renderer.domElement.dataset.marker='none';renderer.domElement.dataset.flight='landed';
  const left=(view+2)%3,right=(view+1)%3;
- for(const [seat,x,rot]of [[left,-8.4,Math.PI/2],[right,8.4,-Math.PI/2]]){
-  const p=g.players[seat],covered=showAll?[]:reservedKongTiles(p);p.hand.forEach((t,i)=>tile(t==='?'||covered.includes(t)?'?':t,x,-4+i*.64,rot,!(p.liang||showAll)));
+ for(const [seat,x,rot]of [[left,-8.3,Math.PI/2],[right,8.3,-Math.PI/2]]){
+  const p=g.players[seat],covered=showAll?[]:reservedKongTiles(p),hidden=!(p.liang||showAll),pitch=hidden?.61:.67;p.hand.forEach((t,i)=>tile(t==='?'||covered.includes(t)?'?':t,x,(i-(p.hand.length-1)/2)*pitch,rot,hidden));
   const meldSpan=p.melds.reduce((sum,m)=>sum+(m.kind==='peng'?3:4)*.64+.32,0);
   const meldScale=Math.min(1,8.1/Math.max(1,meldSpan));let meldOffset=-4;
   p.melds.forEach(m=>{const count=m.kind==='peng'?3:4;for(let k=0;k<count;k++)tile(m.kind==='an'&&k===0?'?':m.tile,x+(x<0?1:-1),meldOffset+k*.64*meldScale,rot).scale.setScalar(meldScale);meldOffset+=(count*.64+.32)*meldScale;});
@@ -113,5 +147,10 @@ export function mountScene(element,g,view,showAll){
 export function resizeScene(){if(!renderer||!host?.isConnected)return;const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;
  // Account for the arena's CSS scale, including portrait rotation, before rasterizing.
  const arena=host.closest('.arena'),matrix=new DOMMatrix(getComputedStyle(arena||host).transform),scale=Math.hypot(matrix.a,matrix.b)||1;
- const ratio=Math.min(3,Math.max(1,devicePixelRatio*scale),Math.sqrt(12000000/(w*h)));
- renderer.setPixelRatio(ratio);renderer.setSize(w,h,false);renderer.domElement.style.width='100%';renderer.domElement.style.height='100%';renderer.setViewport(0,0,w,h);renderer.setScissorTest(false);camera.aspect=w/h;camera.position.y=camera.aspect<1.7?19:17;camera.updateProjectionMatrix();renderer.render(scene,camera);}
+ // Modest supersampling smooths diagonal 3D edges without forcing every device to 4K.
+ // Budget is expressed in real drawing-buffer pixels, after the arena transform.
+ const compact=Math.min(innerWidth,innerHeight)<=600;
+ const pixelBudget=compact?4000000:8000000;
+ const targetDpr=Math.max(1.5,Math.min(devicePixelRatio*1.25,3));
+ const ratio=Math.min(4,Math.max(1,targetDpr*scale),Math.sqrt(pixelBudget/(w*h)));
+ renderer.setPixelRatio(ratio);renderer.setSize(w,h,false);renderer.domElement.style.width='100%';renderer.domElement.style.height='100%';renderer.setViewport(0,0,w,h);renderer.setScissorTest(false);camera.aspect=w/h;camera.position.set(0,camera.aspect<1.7?18:16,camera.aspect<1.7?16:14);camera.lookAt(0,0,1.6);camera.updateProjectionMatrix();renderer.render(scene,camera);}
