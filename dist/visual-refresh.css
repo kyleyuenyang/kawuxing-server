@@ -125,3 +125,5 @@
 .opponent-waits{width:148px;max-width:148px;max-height:96px;overflow:auto;padding:7px 8px;border-radius:12px}
 .opponent-waits header{gap:3px;flex-wrap:wrap;margin-bottom:4px}
 .opponent-waits header strong{font-size:13px}.opponent-waits header span{font-size:10px}
+
+.participation-controls{padding:10px 0;border-bottom:1px solid #bdd1dd;margin-bottom:12px}.participation-controls strong{display:block}.participation-controls p{font-size:12px;line-height:1.5;margin:8px 0}.participation-controls button{margin:4px 8px 4px 0}.room-capacity{font-size:13px;line-height:1.6}.spectate-choice{display:flex;align-items:center;gap:8px}.hand-dock .tile.face-down{background:linear-gradient(120deg,#3faf79,#187149);color:#daf4dd}.hand-dock .tile.face-down span{font-size:22px}
