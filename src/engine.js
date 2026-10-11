@@ -48,9 +48,9 @@ export function evaluate(hand,melds=[],ctx={}) {
   if(ctx.sea) add(ctx.self?'海底自摸':'海底放炮',2);
   const raw=f.reduce((v,x)=>v*x.n,1);
   if(!f.length) add('普通胡',1);
-  // Ordinary self-draw explicitly requires the winner to reveal.
+  // Ordinary self-draw requires reveal, except a legal kong replacement win.
   const basePatterns=f.filter(x=>!['普通胡','亮倒','杠上开花','杠上杠','海底自摸','海底放炮'].includes(x.name));
-  const ordinarySelf=ctx.self && !basePatterns.length && !ctx.liang;
+  const ordinarySelf=ctx.self && !basePatterns.length && !ctx.liang && !(ctx.gang>0);
   candidates.push({factors:f,raw,legal:raw>=2&&!ordinarySelf,warning:f.some(x=>x.name.includes('待确认'))?'三豪七对未确认，暂不允许结算':null});
  }
  return candidates.sort((a,b)=>Number(b.legal)-Number(a.legal)||b.raw-a.raw)[0];

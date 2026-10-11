@@ -127,3 +127,9 @@
 .opponent-waits header strong{font-size:13px}.opponent-waits header span{font-size:10px}
 
 .participation-controls{padding:10px 0;border-bottom:1px solid #bdd1dd;margin-bottom:12px}.participation-controls strong{display:block}.participation-controls p{font-size:12px;line-height:1.5;margin:8px 0}.participation-controls button{margin:4px 8px 4px 0}.room-capacity{font-size:13px;line-height:1.6}.spectate-choice{display:flex;align-items:center;gap:8px}.hand-dock .tile.face-down{background:linear-gradient(120deg,#3faf79,#187149);color:#daf4dd}.hand-dock .tile.face-down span{font-size:22px}
+
+/* Direct recovery is visible outside the menu and above settlement panels. */
+.resume-game-control{position:fixed;z-index:1000;left:50%;top:10px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:10px 14px;border:2px solid #fff4c8;border-radius:14px;background:#163d42;box-shadow:0 5px 24px #0006;color:white;max-width:calc(100vw - 20px);box-sizing:border-box;}
+.resume-game-control button{white-space:nowrap;background:#ffe08a;color:#183f42;border:0;border-radius:10px;font-size:20px;font-weight:800;padding:12px 22px;cursor:pointer;}
+.resume-game-control span{font-size:13px;line-height:1.4;max-width:220px;}
+@media(max-width:600px){.resume-game-control{gap:8px;padding:8px;width:calc(100vw - 20px)}.resume-game-control button{padding:10px 14px;font-size:18px}.resume-game-control span{font-size:12px}}

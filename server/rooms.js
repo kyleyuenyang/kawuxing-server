@@ -65,13 +65,17 @@ export class Rooms {
  action(code,token,input){
   const r=this.rooms.get(code);if(!r)fail('房间不存在');const id=this.member(r,token);
   if(r.closed)fail('房间已结束，请返回大厅重新建房');
+  if(input.type==='resume'&&r.members[id].active&&r.members[id].ready&&!r.members[id].pendingInactive)return this.view(r,token);
   if(input.type==='participation'&&typeof input.active==='boolean'&&r.members[id].active===input.active)return this.view(r,token);
   if(input.type==='ready'&&typeof input.ready==='boolean'&&r.members[id].ready===input.ready)return this.view(r,token);
   if(input.version!==r.version)fail('牌局已更新，请刷新后重试');
   const before=structuredClone(r);
   try{
    r.members.forEach((m,i)=>names[i]=m.name);
-   if(input.type==='participation'){
+   if(input.type==='resume'){
+    Object.assign(r.members[id],{active:true,ready:true,pendingInactive:false});
+    if((!r.game||r.game.phase==='ended')&&Date.now()>=r.autoAt)this.advance(r);
+   }else if(input.type==='participation'){
     if(typeof input.active!=='boolean')fail('参与状态无效');
     r.members[id].active=input.active;
     r.members[id].pendingInactive=!input.active&&!!r.game&&r.game.phase!=='ended'&&r.game.seats.includes(id);
