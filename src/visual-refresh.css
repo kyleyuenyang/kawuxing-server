@@ -110,3 +110,18 @@
 .play-action{border-radius:18px;border-width:2px;box-shadow:0 4px 0 #8f713c55,0 7px 9px #24536f33}
 .play-action.secondary{background:linear-gradient(#effcff,#b8e1ee);color:#2c6787;border-color:#daf4fc;border-bottom-color:#70a4bd}
 .opponent-waits,.hand-preview{border-radius:16px;background:#315f83f2;border-color:#b8dfeb;box-shadow:0 5px 12px #16436133}
+
+/* The top information strip leaves the projected discard lanes unobstructed. */
+.compass{left:calc(50% - 59px);top:70px;width:72px;height:64px;filter:drop-shadow(0 3px 2px #214f7155)}
+.wall-counter{left:calc(50% - 8px);top:48px;width:90px;height:37px;flex-direction:row-reverse;justify-content:center;gap:7px;padding:3px 7px;border:1px solid #a3e3c2;border-bottom:3px solid #bde5d4;border-radius:11px;box-shadow:0 2px 0 #417e76}
+.wall-counter b{font:700 22px/26px system-ui}
+.wall-counter small{font:600 12px/18px system-ui}
+.current-status{top:105px;max-width:340px;font-size:13px;line-height:1.2;margin:0}
+.game-actions{bottom:155px}
+.table-wordmark{display:none}
+@media(max-width:600px),(max-height:500px){.current-status{font-size:18px;top:103px}.wall-counter small{font-size:15px}.wall-counter{width:100px}}
+
+.opponent-waits-layer{top:282px;left:3.6%;right:3.6%;grid-template-columns:148px 148px;justify-content:space-between;gap:0}
+.opponent-waits{width:148px;max-width:148px;max-height:96px;overflow:auto;padding:7px 8px;border-radius:12px}
+.opponent-waits header{gap:3px;flex-wrap:wrap;margin-bottom:4px}
+.opponent-waits header strong{font-size:13px}.opponent-waits header span{font-size:10px}

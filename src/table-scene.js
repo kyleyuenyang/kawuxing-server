@@ -1,3 +1,4 @@
+import {riverLayout} from './river-layout.js';
 import * as THREE from 'three';
 import {WALL_SIDES,SEAT_SIDE} from './wall.js';
 import {reservedKongTiles} from './engine.js';
@@ -130,12 +131,10 @@ export function mountScene(element,g,view,showAll){
   p.melds.forEach(m=>{const count=m.kind==='peng'?3:4;for(let k=0;k<count;k++)tile(m.kind==='an'&&k===0?'?':m.tile,x+(x<0?1:-1),meldOffset+k*.64*meldScale,rot).scale.setScalar(meldScale);meldOffset+=(count*.64+.32)*meldScale;});
  }
  for(const [seat,side]of [[view,0],[left,-1],[right,1]]){
-  const p=g.players[seat];p.river.forEach((t,i)=>{
-   const col=i%6,row=Math.floor(i/6);let x,z,rot;
-   if(side===0){x=(col-2.5)*.78;z=1.3+row*.99;rot=0;}
-   else{x=side*(3.1+row*.99);z=-2.8+col*.78;rot=side===-1?Math.PI/2:-Math.PI/2;}
+  const p=g.players[seat],positions=riverLayout(p.river.length,side);p.river.forEach((t,i)=>{
+   const {x,z,rot,scale}=positions[i];
    const group=tile(t,x,z,rot);
-   group.scale.setScalar(1.18);
+   group.scale.setScalar(scale);
    const latest=last?last.seat===seat&&last.index===i&&last.tile===t:g.phase==='react'&&g.pending.source===seat&&i===p.river.length-1;
    if(latest){marker.visible=true;marker.position.set(x,.9,z);renderer.domElement.dataset.marker=`${seat}:${i}:${t}`;
     if(!reduced()&&(fresh||performance.now()-eventStart<520)){flight={group,to:new THREE.Vector3(x,0,z),from:new THREE.Vector3(side?side*8.4:((last?.handIndex??6)-6)*.6,.5,side?-.8:6)};group.position.copy(flight.from);renderer.domElement.dataset.flight='moving';}
